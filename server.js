@@ -6,22 +6,16 @@ const path = require('path');
 const app = express();
 const PORT = 3000;
 
-// Middleware to parse JSON bodies
-app.use(bodyParser.json());
-
-// WebSocket server
-const wsServer = new WebSocket.Server({ port: 3030 });
-
-// Store chat messages in memory
 let chatHistory = [];
 
-// WebSocket connection handling
+app.use(bodyParser.json());
+
+const wsServer = new WebSocket.Server({ port: 3030 });
+console.log(`WebSocket Server is running on ws://localhost:3030`);
 wsServer.on('connection', function connection(ws) {
-    // Send current chat history to new connections
     ws.send(JSON.stringify(chatHistory));
 });
 
-// Endpoint to receive new messages
 app.post('/messages', (req, res) => {
     const { user, message } = req.body;
     if (user && message) {
@@ -42,7 +36,7 @@ app.post('/messages', (req, res) => {
 });
 
 app.use(express.static(path.join(__dirname, 'dist')));
-app.get('*', (req, res) => {
+app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
@@ -50,9 +44,6 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
     console.log(`HTTP Server is running on http://localhost:${PORT}`);
 });
-
-// WebSocket server is already running on port 3030
-console.log(`WebSocket Server is running on ws://localhost:3030`);
 
 process.on('SIGINT', () => {
     console.log('SIGINT received: closing HTTP server...');

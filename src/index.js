@@ -1,6 +1,9 @@
 import './styles.css';
 
 async function init() {
+  const iframe = document.querySelector('.video-section iframe');
+  iframe.src = process.env.PLAYER_URL;
+
   const sendBtn = document.querySelector('.chat-input button');
   sendBtn.addEventListener('click', sendMessage);
   
