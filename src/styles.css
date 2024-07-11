@@ -66,6 +66,7 @@ header {
   flex-direction: column;
   border-left: 2px solid #9147ff;
   max-width: 350px;
+  overflow-y: auto;
 }
 
 .chat-messages {
@@ -110,8 +111,16 @@ header {
   .container {
     flex-direction: column;
   }
+  .video-section {
+    flex: none;
+  }
+  .video-section::before {
+    content: "";
+    display: block;
+    padding-top: 56.25%;
+}
   .chat-section {
     max-width: none;
-    max-height: 70%;
+    max-height: calc(100% - 70px);
   }
 }

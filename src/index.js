@@ -1,33 +1,71 @@
-import './styles.css';
+import "./styles.css";
+
+let ws
+let pingInterval;
+let initStatus = true;
 
 async function init() {
-  const iframe = document.querySelector('.video-section iframe');
+  const iframe = document.querySelector(".video-section iframe");
   iframe.src = process.env.PLAYER_URL;
 
-  const sendBtn = document.querySelector('.chat-input button');
-  sendBtn.addEventListener('click', sendMessage);
-  
-  const messageInput = document.querySelector('.chat-input textarea');
-  messageInput.addEventListener('keydown', function(event) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        sendMessage();
+  const sendBtn = document.querySelector(".chat-input button");
+  sendBtn.addEventListener("click", sendMessage);
+
+  const messageInput = document.querySelector(".chat-input textarea");
+  messageInput.addEventListener("keydown", function (event) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      sendMessage();
     }
   });
 
-  const ws = new WebSocket(process.env.WS_SERVER_URL);
+  initWebSocket();
+}
+
+function initWebSocket() {
+  ws = new WebSocket(process.env.WS_SERVER_URL);
+
   ws.onmessage = function (event) {
-    const newMessages = JSON.parse(event.data);
+    const newMessages = JSON.parse(event.data).messages;
+    if (!initStatus) {
+      if (JSON.parse(event.data).type === "init") return;
+      else {
+        initStatus = false
+      }
+    }
     appendMessages(newMessages);
+  };
+
+  ws.onopen = function () {
+    pingInterval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "ping" }));
+      }
+    }, 30000);
+  };
+
+  ws.onclose = function () {
+    console.log("WebSocket closed, attempting to reconnect...");
+    setTimeout(initWebSocket, 5000);
+  };
+
+  ws.onerror = function (error) {
+    console.error("WebSocket error:", error);
+    ws.close();
   };
 }
 
 async function sendMessage() {
   const messageInput = document.querySelector(".chat-input textarea");
   const message = messageInput.value.trim();
-  messageInput.value = "";
 
   if (message === "") return;
+  if (message.length > 1000) {
+    alert("Message is too long. Please keep it under 1000 characters.");
+    return;
+  }
+
+  messageInput.value = "";
 
   const response = await fetch("/messages", {
     method: "POST",
@@ -55,8 +93,8 @@ function appendMessages(messages) {
 }
 
 function scrollChatToBottom() {
-  const chatMessages = document.querySelector('.chat-messages');
+  const chatMessages = document.querySelector(".chat-messages");
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener("DOMContentLoaded", init);
