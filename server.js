@@ -24,23 +24,19 @@ wsServer.on("connection", function connection(ws) {
 });
 
 app.post("/messages", (req, res) => {
-  const { user, message } = req.body;
-
-  if (!user || !message) {
-    return res.status(400).send("Invalid data. User and message are required.");
-  }
+  const { user, timestamp, message } = req.body;
 
   if (message.length > 1000) {
     return res.status(400).send("Message exceeds maximum length of 1000 characters.");
   }
 
-  const newMessage = { user, message };
+  const newMessage = { user, timestamp, message };
   addToChatHistory(newMessage);
 
   // Broadcast new message to all connected clients
   wsServer.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify({ type: "init", messages: [newMessage] }));
+      client.send(JSON.stringify({ type: "new", messages: [newMessage] }));
     }
   });
 

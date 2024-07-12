@@ -66,7 +66,6 @@ header {
   flex-direction: column;
   border-left: 2px solid #9147ff;
   max-width: 350px;
-  overflow-y: auto;
 }
 
 .chat-messages {
@@ -77,16 +76,20 @@ header {
   word-break: break-all;
 }
 
+.user {
+  color: #b98aff;
+}
+
 .chat-input {
   display: flex;
   padding: 10px;
-  border-top: 1px solid #ccc;
+  border-top: 2px solid #9147ff;
 }
 
 .chat-input textarea {
   flex: 1;
   padding: 10px;
-  border: 1px solid #ccc;
+  border: 2px solid #9147ff;
   border-radius: 5px;
   resize: none;
   color: white;
@@ -107,7 +110,7 @@ header {
   background-color: #732ddf;
 }
 
-@media (max-width: 810px) {
+@media (max-width: 610px) {
   .container {
     flex-direction: column;
   }
@@ -122,5 +125,7 @@ header {
   .chat-section {
     max-width: none;
     max-height: calc(100% - 70px);
+    border-left: none;
+    border-top: 2px solid #9147ff;
   }
 }

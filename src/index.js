@@ -1,7 +1,6 @@
 import "./styles.css";
 
-let ws
-let pingInterval;
+let ws;
 let initStatus = true;
 
 async function init() {
@@ -29,15 +28,14 @@ function initWebSocket() {
     const newMessages = JSON.parse(event.data).messages;
     if (!initStatus) {
       if (JSON.parse(event.data).type === "init") return;
-      else {
-        initStatus = false
-      }
+    } else {
+      initStatus = false;
     }
     appendMessages(newMessages);
   };
 
   ws.onopen = function () {
-    pingInterval = setInterval(() => {
+    setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "ping" }));
       }
@@ -65,28 +63,31 @@ async function sendMessage() {
     return;
   }
 
-  messageInput.value = "";
-
   const response = await fetch("/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ user: "User", message }),
+    body: JSON.stringify({ user: "User", timestamp: Date.now(), message }),
   });
 
-  if (response.ok) {
-    // Message sent successfully
-  } else {
+  if (!response.ok) {
     alert("Failed to send message");
   }
+
+  messageInput.value = "";
 }
 
 function appendMessages(messages) {
   const chatMessages = document.querySelector(".chat-messages");
   messages.forEach((msg) => {
     const p = document.createElement("p");
-    p.textContent = `${msg.user}: ${msg.message}`;
+    const userSpan = document.createElement("span");
+    userSpan.textContent = `${msg.user}: `;
+    userSpan.classList.add("user");
+    const messageText = document.createTextNode(msg.message);
+    p.appendChild(userSpan);
+    p.appendChild(messageText);
     chatMessages.appendChild(p);
   });
   scrollChatToBottom();
