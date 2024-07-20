@@ -1,20 +1,29 @@
-const path = require('path');
-const { merge } = require('webpack-merge');
-const common = require('./webpack.common.js');
-const Dotenv = require('dotenv-webpack');
+const path = require("path");
+const { merge } = require("webpack-merge");
+const common = require("./webpack.common.js");
+const Dotenv = require("dotenv-webpack");
 
 module.exports = merge(common, {
-  mode: 'development',
-  devtool: 'inline-source-map',
+  mode: "development",
+  output: {
+    path: path.resolve(__dirname, "dist"),
+    filename: "[name].bundle.js",
+    clean: true,
+  },
+  devtool: "inline-source-map",
   devServer: {
     static: {
-      directory: path.join(__dirname, 'dist'),
+      directory: path.join(__dirname, "dist"),
     },
     proxy: [
       {
-        context: ['/messages'],
-        target: 'http://localhost:3000',
+        context: ["/messages"],
+        target: "http://localhost:3000",
       },
+      {
+        context: ["/geoip"],
+        target: "http://localhost:3000",
+      }
     ],
     compress: true,
     port: 9000,
@@ -22,7 +31,7 @@ module.exports = merge(common, {
   },
   plugins: [
     new Dotenv({
-      path: '.env.development',
+      path: ".env.development",
     }),
-  ]
+  ],
 });

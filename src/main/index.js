@@ -3,9 +3,24 @@ import "./styles.css";
 let ws;
 let initStatus = true;
 
+let username;
+
 async function init() {
   const iframe = document.querySelector(".video-section iframe");
   iframe.src = process.env.PLAYER_URL;
+
+  username = localStorage.getItem("username");
+  const usernameInput = document.querySelector(".username-container input");
+  if (username) {
+    usernameInput.value = username;
+  } else {
+    username = "dolboyeb";
+    usernameInput.value = username;
+    localStorage.setItem("username", username);
+  }
+
+  const usernameBtn = document.querySelector(".username-container button");
+  usernameBtn.addEventListener("click", updateUsername);
 
   const sendBtn = document.querySelector(".chat-input button");
   sendBtn.addEventListener("click", sendMessage);
@@ -68,7 +83,7 @@ async function sendMessage() {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ user: "User", timestamp: Date.now(), message }),
+    body: JSON.stringify({ username, timestamp: Date.now(), message }),
   });
 
   if (!response.ok) {
@@ -83,7 +98,7 @@ function appendMessages(messages) {
   messages.forEach((msg) => {
     const p = document.createElement("p");
     const userSpan = document.createElement("span");
-    userSpan.textContent = `${msg.user}: `;
+    userSpan.textContent = `${msg.username}: `;
     userSpan.classList.add("user");
     const messageText = document.createTextNode(msg.message);
     p.appendChild(userSpan);
@@ -96,6 +111,12 @@ function appendMessages(messages) {
 function scrollChatToBottom() {
   const chatMessages = document.querySelector(".chat-messages");
   chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function updateUsername() {
+  const usernameInput = document.querySelector(".username-container input");
+  username = usernameInput.value;
+  localStorage.setItem("username", username);
 }
 
 document.addEventListener("DOMContentLoaded", init);

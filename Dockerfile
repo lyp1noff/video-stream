@@ -26,6 +26,12 @@ COPY --from=build /usr/src/app/server.js ./server.js
 # Copy 'dist' directory from build stage
 COPY --from=build /usr/src/app/dist ./dist
 
+# Create geolite folder
+RUN mkdir -p ./geolite
+
+# Copy GEOLite database
+# COPY geolite/GeoLite2-City.mmdb /geolite/
+
 # Install only production dependencies (using npm ci)
 COPY package*.json ./
 RUN npm i --omit=dev

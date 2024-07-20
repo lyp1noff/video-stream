@@ -15,4 +15,8 @@
 .DS_Store
 Thumbs.db
 
-.scripts
+/.scripts
+/geolite
+
+compose.yaml
+

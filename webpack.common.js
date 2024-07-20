@@ -1,35 +1,41 @@
-const path = require('path');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
+const HtmlWebpackPlugin = require("html-webpack-plugin");
 
 module.exports = {
-  entry: './src/index.js',
+  entry: {
+    main: "./src/main/index.js",
+    // admin: "./src/admin/index.js",
+  },
   module: {
     rules: [
       {
         test: /\.js$/,
         exclude: /node_modules/,
         use: {
-          loader: 'babel-loader',
+          loader: "babel-loader",
           options: {
-            presets: ['@babel/preset-env'],
+            presets: ["@babel/preset-env"],
           },
         },
       },
       {
         test: /\.css$/,
-        use: ['style-loader', 'css-loader'],
+        use: ["style-loader", "css-loader"],
       },
     ],
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: './src/index.html',
+      template: "./src/main/index.html",
+      inject: true,
+      chunks: ["main"],
+      filename: "index.html",
     }),
+
+    // new HtmlWebpackPlugin({
+    //   template: "./src/admin/index.html",
+    //   inject: true,
+    //   chunks: ["admin"],
+    //   filename: "admin.html",
+    // }),
   ],
-  output: {
-    filename: 'bundle.js',
-    path: path.resolve(__dirname, 'dist'),
-    publicPath: '/',
-    clean: true
-  },
 };

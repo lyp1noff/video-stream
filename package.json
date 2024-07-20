@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
-    "dev": "npm-run-all --parallel webpack-dev start",
+    "dev": "npm-run-all --parallel webpack-dev server-dev",
+    "server-dev": "nodemon server.js",
     "webpack-dev": "webpack serve --config webpack.dev.js",
     "build": "webpack --config webpack.prod.js"
   },
@@ -16,6 +17,7 @@
   "dependencies": {
     "body-parser": "^1.20.2",
     "express": "^4.19.2",
+    "maxmind": "^4.3.20",
     "ws": "^8.18.0"
   },
   "devDependencies": {
@@ -28,6 +30,7 @@
     "eslint": "^9.6.0",
     "globals": "^15.8.0",
     "html-webpack-plugin": "^5.6.0",
+    "nodemon": "^3.1.4",
     "npm-run-all": "^4.1.5",
     "style-loader": "^4.0.0",
     "webpack": "^5.92.1",
