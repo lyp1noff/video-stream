@@ -152,6 +152,7 @@ header h1 {
     text-align: center;
     position: unset;
     transform: none;
+    padding-left: 10px;
   }
 
   .header-left {
@@ -159,7 +160,7 @@ header h1 {
   }
 }
 
-@media (max-width: 610px) {
+@media (max-width: 800px) {
 
   header {
     flex-direction: column;
@@ -186,6 +187,7 @@ header h1 {
   .chat-section {
     width: auto;
     border-left: none;
+    flex: 1;
     border-top: 2px solid #9147ff;
   }
 }

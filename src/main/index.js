@@ -113,8 +113,13 @@ function scrollChatToBottom() {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
+
 function updateUsername() {
   const usernameInput = document.querySelector(".username-container input");
+  if (usernameInput.value.length > 20) {
+    alert("Nickname is too long. Please keep it under 20 characters.");
+    return;
+  }
   username = usernameInput.value;
   localStorage.setItem("username", username);
 }
