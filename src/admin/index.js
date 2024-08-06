@@ -61,7 +61,7 @@ async function fetchConnections() {
   }
 
   // Remove any remaining items that were not updated
-  for (const [item] of currentConnections) {
+  for (const [id, item] of currentConnections) {
     connectionList.removeChild(item);
   }
 }
