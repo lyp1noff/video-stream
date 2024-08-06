@@ -3,7 +3,7 @@ const HtmlWebpackPlugin = require("html-webpack-plugin");
 module.exports = {
   entry: {
     main: "./src/main/index.js",
-    // admin: "./src/admin/index.js",
+    admin: "./src/admin/index.js",
   },
   module: {
     rules: [
@@ -26,16 +26,22 @@ module.exports = {
   plugins: [
     new HtmlWebpackPlugin({
       template: "./src/main/index.html",
-      inject: true,
+      favicon: "./src/favicon.ico",
       chunks: ["main"],
-      filename: "index.html",
+      filename: "public/index.html",
     }),
 
-    // new HtmlWebpackPlugin({
-    //   template: "./src/admin/index.html",
-    //   inject: true,
-    //   chunks: ["admin"],
-    //   filename: "admin.html",
-    // }),
+    new HtmlWebpackPlugin({
+      template: "./src/admin/index.html",
+      favicon: "./src/favicon.ico",
+      chunks: ["admin"],
+      filename: "protected/admin.html",
+    }),
+
+    new HtmlWebpackPlugin({
+      template: "./src/login/index.html",
+      chunks: ["login"],
+      filename: "public/login.html",
+    }),
   ],
 };

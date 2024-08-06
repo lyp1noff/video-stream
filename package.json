@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
     "dev": "npm-run-all --parallel webpack-dev server-dev",
-    "server-dev": "nodemon server.js",
+    "server-dev": "nodemon --env-file=.env.development server.js",
     "webpack-dev": "webpack serve --config webpack.dev.js",
     "build": "webpack --config webpack.prod.js"
   },
@@ -15,9 +15,15 @@
   "license": "ISC",
   "description": "Open WHIP Stream Service",
   "dependencies": {
+    "axios": "^1.7.3",
+    "bcrypt": "^5.1.1",
     "body-parser": "^1.20.2",
     "express": "^4.19.2",
+    "express-session": "^1.18.0",
     "maxmind": "^4.3.20",
+    "passport": "^0.7.0",
+    "passport-local": "^1.0.0",
+    "sqlite3": "^5.1.7",
     "ws": "^8.18.0"
   },
   "devDependencies": {

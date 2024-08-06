@@ -5,13 +5,26 @@ let pingInterval;
 let initStatus = true;
 
 async function fetchConnections() {
-  const response = await fetch("http://127.0.0.1:9997/v3/paths/list");
+  const response = await fetch("/api/v3/paths/list");
   const data = await response.json();
 
-  if (data.items.length < 1) return;
+  const statusDot = document.querySelector(".dot");
+
+  if (data.items.length < 1) {
+    statusDot.classList.add("red");
+    statusDot.classList.remove("green");
+    return;
+  } else if (data.items[0].ready !== true) {
+    statusDot.classList.add("red");
+    statusDot.classList.remove("green");
+    return;
+  }
+
+  statusDot.classList.add("green");
+  statusDot.classList.remove("red");
 
   const connections = data.items[0].readers;
-  const connectionList = document.getElementById("connections");
+  const connectionList = document.querySelector("#connections");
 
   // Create a map of current connections by ID
   const currentConnections = new Map();
@@ -22,7 +35,7 @@ async function fetchConnections() {
   // Update the list without clearing it
   for (const connection of connections) {
     const connectionDetails = await fetch(
-      `http://127.0.0.1:9997/v3/webrtcsessions/get/${connection.id}`
+      `api/v3/webrtcsessions/get/${connection.id}`
     );
     const connectionData = await connectionDetails.json();
 
@@ -129,7 +142,7 @@ function appendMessages(messages) {
       hour12: false,
     })}] `;
     timeSpan.classList.add("time");
-    userSpan.textContent = `${msg.user}: `;
+    userSpan.textContent = `${msg.username}: `;
     userSpan.classList.add("user");
     const messageText = document.createTextNode(msg.message);
     p.appendChild(timeSpan);

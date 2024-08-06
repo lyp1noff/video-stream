@@ -7,7 +7,8 @@ module.exports = merge(common, {
   mode: "production",
   output: {
     path: path.resolve(__dirname, "dist"),
-    filename: "[name].[contenthash].bundle.js",
+    publicPath:'/',
+    filename: "public/[name].[contenthash].bundle.js",
     clean: true,
   },
   plugins: [

@@ -1,0 +1,12 @@
+services:
+  video-stream:
+    image: video-stream:latest
+    container_name: video-stream
+    ports:
+      - "3600:3000"
+      - "3630:3030"
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - /some/path/data:/usr/src/app/data

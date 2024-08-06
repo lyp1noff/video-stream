@@ -39,6 +39,7 @@ li {
 
 p {
     margin-bottom: 2px;
+    word-break: break-all;
 }
 
 .user {
@@ -63,6 +64,8 @@ p {
 
 .time-container {
     margin-top: 10px;
+    display: flex;
+    flex-direction: row;
 }
 
 .flex-container {
@@ -86,4 +89,23 @@ p {
 .chat-messages {
     overflow-y: auto;
     flex: 1;
+}
+
+.status-container { 
+    margin-left: 10px;
+    display: flex;
+}
+
+.dot {
+    margin-left: 3px;
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.red {
+    background-color: red;
+}
+.green {
+    background-color: green;
 }

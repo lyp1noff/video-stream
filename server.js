@@ -1,14 +1,29 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-// const maxmind = require("maxmind");
-const WebSocket = require("ws");
 const path = require("path");
+const WebSocket = require("ws");
+const express = require("express");
+const session = require("express-session");
+const bodyParser = require("body-parser");
+const maxmind = require("maxmind");
+const bcrypt = require("bcrypt");
+const passport = require("passport");
+const LocalStrategy = require("passport-local");
+const sqlite3 = require("sqlite3");
+const axios = require('axios');
 
 const app = express();
 const PORT = 3000;
 
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, "dist")));
+app.set('trust proxy', 1);
+app.use("/public", express.static(path.join(__dirname, "dist", "public")));
+
+const db = new sqlite3.Database("data/database.db", (err) => {
+  if (err) {
+    console.error("Could not open database:", err.message);
+  } else {
+    console.log("Connected to the SQLite database.");
+  }
+});
 
 let chatHistory = [];
 
@@ -19,19 +34,19 @@ function addToChatHistory(item) {
   }
 }
 
-// const dbPath = path.join(__dirname, "geolite/GeoLite2-City.mmdb");
+const dbPath = path.join(__dirname, "data/GeoLite2-City.mmdb");
 
-// let lookup;
+let lookup;
 
-// maxmind
-//   .open(dbPath)
-//   .then((cityLookup) => {
-//     lookup = cityLookup;
-//     console.log("GeoLite2 City database loaded");
-//   })
-//   .catch((err) => {
-//     console.error("Error loading GeoLite2 City database", err);
-//   });
+maxmind
+  .open(dbPath)
+  .then((cityLookup) => {
+    lookup = cityLookup;
+    console.log("GeoLite2 City database loaded");
+  })
+  .catch((err) => {
+    console.error("Error loading GeoLite2 City database", err);
+  });
 
 const wsServer = new WebSocket.Server({ port: 3030 });
 console.log(`WebSocket Server is running on ws://localhost:3030`);
@@ -80,33 +95,121 @@ app.post("/messages", (req, res) => {
   res.status(201).send("Message added");
 });
 
-// app.get("/geoip", (req, res) => {
-//   const ip = req.query.ip || req.ip;
+passport.use(
+  new LocalStrategy(function (username, password, done) {
+    db.get(
+      "SELECT * FROM users WHERE username = ?",
+      [username],
+      (err, user) => {
+        if (err) {
+          return done(err);
+        }
+        if (!user) {
+          return done(null, false, { message: "Incorrect username." });
+        }
 
-//   if (!lookup) {
-//     return res.status(500).json({ error: "GeoLite2 database not loaded yet" });
-//   }
+        // Verify password
+        bcrypt.compare(password, user.password, (err, res) => {
+          if (res) {
+            return done(null, user);
+          } else {
+            return done(null, false, { message: "Incorrect password." });
+          }
+        });
+      }
+    );
+  })
+);
 
-//   const geoData = lookup.get(ip);
+passport.serializeUser(function (user, done) {
+  done(null, user.id);
+});
 
-//   if (!geoData) {
-//     return res
-//       .status(404)
-//       .json({ error: "No geolocation data found for this IP" });
-//   }
+passport.deserializeUser(function (id, done) {
+  db.get("SELECT * FROM users WHERE id = ?", [id], (err, user) => {
+    done(err, user);
+  });
+});
 
-//   const city = geoData.city ? geoData.city.names.en : "Unknown";
-//   const country = geoData.country ? geoData.country.names.en : "Unknown";
+app.use(express.urlencoded({ extended: true }));
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.PRODUCTION === "true",
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60 * 12, // 12 Hours
+    },
+  })
+);
+app.use(passport.initialize());
+app.use(passport.session());
 
-//   res.json({ city, country });
-// });
+app.get("/login", (req, res) => {
+  res.sendFile(path.join(__dirname, "dist", "public", "login.html"));
+});
 
-// app.get("/admin", (req, res) => {
-//   res.sendFile(path.join(__dirname, "dist", "admin.html"));
-// });
+app.post(
+  "/login",
+  passport.authenticate("local", { failureRedirect: "/login" }),
+  function (req, res) {
+    res.redirect("/admin");
+  }
+);
+
+app.get("/admin", ensureAuthenticated, (req, res) => {
+  res.sendFile(path.join(__dirname, "dist", "protected", "admin.html"));
+});
+
+function ensureAuthenticated(req, res, next) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.redirect("/login");
+}
+
+app.get("/geoip", (req, res) => {
+  const ip = req.query.ip || req.ip;
+
+  if (!lookup) {
+    return res.status(500).json({ error: "GeoLite2 database not loaded yet" });
+  }
+
+  const geoData = lookup.get(ip);
+
+  if (!geoData) {
+    return res
+      .status(404)
+      .json({ error: "No geolocation data found for this IP" });
+  }
+
+  const city = geoData.city ? geoData.city.names.en : "Unknown";
+  const country = geoData.country ? geoData.country.names.en : "Unknown";
+
+  res.json({ city, country });
+});
+
+app.get('/api/*', ensureAuthenticated, (req, res) => {
+  const pathAfterApi = req.params[0];
+  const apiUrl = `${process.env.STREAM_API_URL}/${pathAfterApi}`;
+  axios.get(apiUrl)
+  .then(response => {
+    res.json(response.data);
+  })
+  .catch(error => {
+    console.error('Error making GET request:', error);
+    res.status(500).send('Internal Server Error');
+  });
+});
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "dist", "index.html"));
+  res.sendFile(path.join(__dirname, "dist", "public", "index.html"));
+});
+
+app.get('/favicon.ico', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'favicon.ico'));
 });
 
 // Start server
