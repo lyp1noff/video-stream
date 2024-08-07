@@ -33,28 +33,45 @@ async function init() {
     }
   });
 
+  const toggleButton = document.querySelector(".toggle-chat");
+  const chatSection = document.querySelector(".chat-section");
+
+  toggleButton.addEventListener("click", () => {
+    if (chatSection.style.display === "none") {
+      chatSection.style.display = "flex";
+      toggleButton.textContent = "Hide Chat";
+    } else {
+      chatSection.style.display = "none";
+      toggleButton.textContent = "Show Chat";
+    }
+  });
+
   initWebSocket();
 }
 
 function initWebSocket() {
   ws = new WebSocket(process.env.WS_SERVER_URL);
 
-  ws.onmessage = function (event) {
-    const newMessages = JSON.parse(event.data).messages;
-    if (!initStatus) {
-      if (JSON.parse(event.data).type === "init") return;
-    } else {
+  ws.onopen = function () {
+    if (initStatus) {
+      const data = { type: "init" };
+      ws.send(JSON.stringify(data));
       initStatus = false;
     }
-    appendMessages(newMessages);
-  };
 
-  ws.onopen = function () {
     setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "ping" }));
       }
     }, 30000);
+  };
+
+  ws.onmessage = function (event) {
+    const data = JSON.parse(event.data);
+    if (data.type === "new_msg" || data.type === "init") {
+      const newMessages = data.messages;
+      appendMessages(newMessages);
+    }
   };
 
   ws.onclose = function () {
@@ -78,17 +95,23 @@ async function sendMessage() {
     return;
   }
 
-  const response = await fetch("/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ username, timestamp: Date.now(), message }),
-  });
+  ws.send(
+    JSON.stringify({
+      type: "new_user_msg",
+      message_data: { username, timestamp: Date.now(), message },
+    })
+  );
+  // const response = await fetch("/messages", {
+  //   method: "POST",
+  //   headers: {
+  //     "Content-Type": "application/json",
+  //   },
+  //   body: JSON.stringify({ username, timestamp: Date.now(), message }),
+  // });
 
-  if (!response.ok) {
-    alert("Failed to send message");
-  }
+  // if (!response.ok) {
+  //   alert("Failed to send message");
+  // }
 
   messageInput.value = "";
 }
@@ -112,7 +135,6 @@ function scrollChatToBottom() {
   const chatMessages = document.querySelector(".chat-messages");
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
-
 
 function updateUsername() {
   const usernameInput = document.querySelector(".username-container input");

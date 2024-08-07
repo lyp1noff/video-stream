@@ -7,9 +7,12 @@ module.exports = merge(common, {
   mode: "production",
   output: {
     path: path.resolve(__dirname, "dist"),
-    publicPath:'/',
+    publicPath: "/",
     filename: "public/[name].[contenthash].bundle.js",
     clean: true,
+  },
+  optimization: {
+    minimize: true,
   },
   plugins: [
     new Dotenv({

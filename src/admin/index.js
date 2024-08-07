@@ -86,25 +86,30 @@ function calculateElapsedTime(createdTime) {
 }
 
 function initWebSocket() {
-  ws = new WebSocket(process.env.WS_SERVER_URL);
-
-  ws.onmessage = function (event) {
-    const newMessages = JSON.parse(event.data).messages;
-    if (!initStatus) {
-      if (JSON.parse(event.data).type === "init") return;
-      else {
-        initStatus = false;
-      }
-    }
-    appendMessages(newMessages);
-  };
+  ws = new WebSocket(
+    `${process.env.WS_SERVER_URL}?apiKey=${process.env.ADMIN_API_KEY}`
+  );
 
   ws.onopen = function () {
+    if (initStatus) {
+      const data = { type: "init" };
+      ws.send(JSON.stringify(data));
+      initStatus = false;
+    }
+
     pingInterval = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "ping" }));
       }
     }, 30000);
+  };
+
+  ws.onmessage = function (event) {
+    const data = JSON.parse(event.data);
+    if (data.type === "new_msg" || data.type === "init") {
+      const newMessages = data.messages;
+      appendMessages(newMessages);
+    }
   };
 
   ws.onclose = function () {
@@ -136,16 +141,20 @@ function appendMessages(messages) {
   const chatMessages = document.querySelector(".chat-messages");
   messages.forEach((msg) => {
     const p = document.createElement("p");
-    const userSpan = document.createElement("span");
     const timeSpan = document.createElement("span");
+    const ipSpan = document.createElement("span");
+    const userSpan = document.createElement("span");
     timeSpan.textContent = `[${new Date(msg.timestamp).toLocaleString("en-GB", {
       hour12: false,
     })}] `;
     timeSpan.classList.add("time");
+    ipSpan.textContent = ` [${msg.ip}] `;
+    ipSpan.classList.add("ip");
     userSpan.textContent = `${msg.username}: `;
     userSpan.classList.add("user");
     const messageText = document.createTextNode(msg.message);
     p.appendChild(timeSpan);
+    p.appendChild(ipSpan);
     p.appendChild(userSpan);
     p.appendChild(messageText);
     chatMessages.appendChild(p);
