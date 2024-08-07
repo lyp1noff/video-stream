@@ -8,13 +8,13 @@ const bcrypt = require("bcrypt");
 const passport = require("passport");
 const LocalStrategy = require("passport-local");
 const sqlite3 = require("sqlite3");
-const axios = require("axios");
 
 const PORT = 3000;
 const DIST = path.join(__dirname, "dist");
 
 let lookup;
 let chatHistory = [];
+let streamStatus = false;
 const adminClients = new Set();
 const dbPath = path.join(__dirname, "data/GeoLite2-City.mmdb");
 
@@ -62,13 +62,18 @@ console.log(`WebSocket Server is running on ws://localhost:3030`);
 wsServer.on("connection", function connection(ws, req) {
   const params = new URLSearchParams(req.url.split("?")[1]);
   const apiKey = params.get("apiKey");
-  const remoteAddress = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+  const remoteAddress =
+    req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 
   let isAdmin = process.env.ADMIN_API_KEY === apiKey;
   if (isAdmin) {
     adminClients.add(ws);
     console.log(`Admin connected: ${remoteAddress}`);
   }
+
+  ws.send(
+    JSON.stringify({ type: "status", message: { status: streamStatus } })
+  );
 
   ws.on("message", (message) => {
     try {
@@ -92,7 +97,7 @@ wsServer.on("connection", function connection(ws, req) {
         case "ping":
           ws.send(JSON.stringify({ type: "pong" }));
           break;
-        case "new_user_msg": 
+        case "new_user_msg":
           recievedMessage(
             data.message_data.username,
             remoteAddress,
@@ -289,18 +294,32 @@ app.get("/geoip", (req, res) => {
   res.json({ city, country });
 });
 
-app.get("/api/*", ensureAuthenticated, (req, res) => {
+app.post("/webhook", (req, res) => {
+  const { status, path } = req.query;
+  console.log(`Stream is ready: path=${path}, status=${status}`);
+
+  if (path === "stream") {
+    streamStatus = status === "up";
+    brodcastStreamStatus();
+  }
+
+  res.status(200).send("Stream");
+});
+
+app.get("/api/*", ensureAuthenticated, async (req, res) => {
   const pathAfterApi = req.params[0];
   const apiUrl = `${process.env.STREAM_API_URL}/${pathAfterApi}`;
-  axios
-    .get(apiUrl)
-    .then((response) => {
-      res.json(response.data);
-    })
-    .catch((error) => {
-      console.error("Error making GET request:", error);
-      res.status(500).send("Internal Server Error");
-    });
+  try {
+    const response = await fetch(apiUrl);
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error("Error making GET request:", error);
+    res.status(500).send("Internal Server Error");
+  }
 });
 
 app.get("/", (req, res) => {
@@ -310,6 +329,38 @@ app.get("/", (req, res) => {
 app.get("/favicon.ico", (req, res) => {
   res.sendFile(path.join(DIST, "favicon.ico"));
 });
+
+async function checkStreamStatus() {
+  const apiUrl = `${process.env.STREAM_API_URL}/v3/paths/list`;
+  try {
+    const response = await fetch(apiUrl);
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    const data = await response.json();
+    if (data.items.length < 1) return false;
+    if (data.items[0].ready !== true) return false;
+    return true;
+  } catch (error) {
+    console.error("Error making GET request:", error);
+    return false;
+  }
+}
+
+function brodcastStreamStatus() {
+  wsServer.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(
+        JSON.stringify({ type: "status", message: { status: streamStatus } })
+      );
+    }
+  });
+}
+
+async function init() {
+  streamStatus = await checkStreamStatus();
+}
+init();
 
 // Start server
 app.listen(PORT, () => {

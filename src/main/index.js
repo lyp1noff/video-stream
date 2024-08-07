@@ -6,9 +6,6 @@ let initStatus = true;
 let username;
 
 async function init() {
-  const iframe = document.querySelector(".video-section iframe");
-  iframe.src = process.env.PLAYER_URL;
-
   username = localStorage.getItem("username");
   const usernameInput = document.querySelector(".username-container input");
   if (username) {
@@ -71,6 +68,10 @@ function initWebSocket() {
     if (data.type === "new_msg" || data.type === "init") {
       const newMessages = data.messages;
       appendMessages(newMessages);
+    }
+
+    if (data.type === "status") {
+      showPlayer(data.message.status);
     }
   };
 
@@ -144,6 +145,19 @@ function updateUsername() {
   }
   username = usernameInput.value;
   localStorage.setItem("username", username);
+}
+
+function showPlayer(status) {
+  const videoSection = document.querySelector(".video-section");
+  const iframe = document.querySelector(".video-section iframe");
+  if (status) {
+    iframe.style.display = "block";
+    iframe.src = process.env.PLAYER_URL;
+    videoSection;
+  } else {
+    iframe.style.display = "none";
+    iframe.src = "";
+  }
 }
 
 document.addEventListener("DOMContentLoaded", init);

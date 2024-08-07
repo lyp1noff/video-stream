@@ -3,25 +3,13 @@ import "./styles.css";
 let ws;
 let pingInterval;
 let initStatus = true;
+let streamStatus = false;
 
 async function fetchConnections() {
+  if (!streamStatus) return;
+
   const response = await fetch("/api/v3/paths/list");
   const data = await response.json();
-
-  const statusDot = document.querySelector(".dot");
-
-  if (data.items.length < 1) {
-    statusDot.classList.add("red");
-    statusDot.classList.remove("green");
-    return;
-  } else if (data.items[0].ready !== true) {
-    statusDot.classList.add("red");
-    statusDot.classList.remove("green");
-    return;
-  }
-
-  statusDot.classList.add("green");
-  statusDot.classList.remove("red");
 
   const connections = data.items[0].readers;
   const connectionList = document.querySelector("#connections");
@@ -110,6 +98,18 @@ function initWebSocket() {
       const newMessages = data.messages;
       appendMessages(newMessages);
     }
+    if (data.type === "status") {
+      streamStatus = data.message.status;
+
+      const statusDot = document.querySelector(".dot");
+      if (streamStatus) {
+        statusDot.classList.add("green");
+        statusDot.classList.remove("red");
+      } else {
+        statusDot.classList.add("red");
+        statusDot.classList.remove("green");
+      }
+    }
   };
 
   ws.onclose = function () {
@@ -172,7 +172,31 @@ function timer() {
   time.textContent = new Date().toLocaleTimeString("en-GB", { hour12: false });
 }
 
-setInterval(timer, 500);
-setInterval(fetchConnections, 1000);
+function togglePlayer() {
+  const button = document.querySelector(".buttons-container button");
+  const videoContainer = document.querySelector(".video-container");
+  const iframe = document.querySelector(".video-section iframe");
+  if (button.textContent === "Show Stream Player") {
+    videoContainer.style.display = "flex";
+    iframe.src = process.env.PLAYER_URL;
+    button.textContent = "Hide Stream Player";
+  } else {
+    videoContainer.style.display = "none";
+    iframe.src = "";
+    button.textContent = "Show Stream Player";
+  }
+}
 
-initWebSocket();
+function init() {
+  setInterval(timer, 500);
+  timer();
+  setInterval(fetchConnections, 1000);
+  fetchConnections();
+
+  initWebSocket();
+
+  const button = document.querySelector(".buttons-container button");
+  button.addEventListener("click", togglePlayer);
+}
+
+document.addEventListener("DOMContentLoaded", init);
