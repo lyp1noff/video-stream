@@ -16,6 +16,7 @@ let lookup;
 let chatHistory = [];
 let streamStatus = false;
 const adminClients = new Set();
+const adminIPs = new Set();
 const dbPath = path.join(__dirname, "data/GeoLite2-City.mmdb");
 
 const app = express();
@@ -62,12 +63,16 @@ console.log(`WebSocket Server is running on ws://localhost:3030`);
 wsServer.on("connection", function connection(ws, req) {
   const params = new URLSearchParams(req.url.split("?")[1]);
   const apiKey = params.get("apiKey");
-  const remoteAddress =
-    req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+  let remoteAddress = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+    
+  if (remoteAddress.startsWith('::ffff:')) {
+      remoteAddress = remoteAddress.substring(7);
+  }
 
   let isAdmin = process.env.ADMIN_API_KEY === apiKey;
   if (isAdmin) {
     adminClients.add(ws);
+    adminIPs.add(remoteAddress);
     console.log(`Admin connected: ${remoteAddress}`);
   }
 
@@ -79,11 +84,14 @@ wsServer.on("connection", function connection(ws, req) {
     try {
       const data = JSON.parse(message);
       switch (data.type) {
-        case "init": {
+        case "adm_init": {
           if (isAdmin) {
             ws.send(JSON.stringify({ type: "init", messages: chatHistory }));
             return;
           }
+          break;
+        }
+        case "init": {
           const cleanChatHistory = chatHistory.map(
             ({ username, timestamp, message }) => ({
               username,
@@ -116,10 +124,61 @@ wsServer.on("connection", function connection(ws, req) {
   ws.on("close", () => {
     if (isAdmin) {
       adminClients.delete(ws);
+      adminIPs.delete(remoteAddress);
       console.log(`Admin disconnected: ${remoteAddress}`);
     }
   });
 });
+
+setInterval(async () => {
+  if (adminClients.size < 1) return;
+  let sendData = [];
+
+  try {
+    const apiUrl = `${process.env.STREAM_API_URL}/v3/paths/list`;
+    const response = await fetch(apiUrl);
+    const data = await response.json();
+    const connections = data.items[0].readers;
+
+    for (const connection of connections) {
+      const connectionDetails = await fetch(
+        `${process.env.STREAM_API_URL}/v3/webrtcsessions/get/${connection.id}`
+      );
+      const connectionData = await connectionDetails.json();
+      const ip = connectionData.remoteAddr.split(":")[0];
+      if (adminIPs.has(ip)) continue;
+      const geo = await fetchGeo(ip);
+      sendData.push({id: connectionData.id, time: connectionData.created, ip, city: geo.city, country: geo.country})
+    }
+  } catch (error) {
+      console.error("Error making GET request:", error);
+  }
+
+  adminClients.forEach((ws) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(
+        JSON.stringify({
+          type: "adm_upd",
+          message: sendData,
+        })
+      );
+    }
+  });
+}, 1000);
+
+async function fetchGeo(ip) {
+  if (!lookup) {
+    console.log("GeoIP database connection err");
+    return { city: "Unknown", country: "Unknown" };
+  }
+  const geoData = lookup.get(ip);
+  if (!geoData) {
+    return { city: "Unknown", country: "Unknown" };
+  }
+  const city = geoData.city ? geoData.city.names.en : "Unknown";
+  const country = geoData.country ? geoData.country.names.en : "Unknown";
+  return { city, country };
+}
 
 function recievedMessage(username, ip, timestamp, message) {
   if (message.length > 1000) {
@@ -159,45 +218,6 @@ function addToChatHistory(item) {
     chatHistory.shift();
   }
 }
-
-// app.post("/messages", (req, res) => {
-//   const { username, timestamp, message } = req.body;
-//   const ip = req.socket.remoteAddress;
-
-//   if (message.length > 1000) {
-//     return res
-//       .status(400)
-//       .send("Message exceeds maximum length of 1000 characters.");
-//   }
-
-//   const newMessage = { username, ip, timestamp, message };
-//   addToChatHistory(newMessage);
-
-//   wsServer.clients.forEach((client) => {
-//     if (client.readyState === WebSocket.OPEN) {
-//       if (adminClients.has(client)) {
-//         client.send(
-//           JSON.stringify({ type: "new_msg", messages: [newMessage] })
-//         );
-//       } else {
-//         client.send(
-//           JSON.stringify({
-//             type: "new_msg",
-//             messages: [
-//               {
-//                 username: newMessage.username,
-//                 timestamp: newMessage.timestamp,
-//                 message: newMessage.message,
-//               },
-//             ],
-//           })
-//         );
-//       }
-//     }
-//   });
-
-//   res.status(201).send("Message added");
-// });
 
 passport.use(
   new LocalStrategy(function (username, password, done) {
@@ -275,24 +295,24 @@ function ensureAuthenticated(req, res, next) {
   res.redirect("/login");
 }
 
-app.get("/geoip", (req, res) => {
-  const ip = req.query.ip || req.ip;
+// app.get("/geoip", (req, res) => {
+//   const ip = req.query.ip || req.ip;
 
-  if (!lookup) {
-    return res.status(500).json({ error: "GeoLite2 database not loaded yet" });
-  }
+//   if (!lookup) {
+//     return res.status(500).json({ error: "GeoLite2 database not loaded yet" });
+//   }
 
-  const geoData = lookup.get(ip);
+//   const geoData = lookup.get(ip);
 
-  if (!geoData) {
-    return res.json({ city: "Unknown", country: "Unknown" });
-  }
+//   if (!geoData) {
+//     return res.json({ city: "Unknown", country: "Unknown" });
+//   }
 
-  const city = geoData.city ? geoData.city.names.en : "Unknown";
-  const country = geoData.country ? geoData.country.names.en : "Unknown";
+//   const city = geoData.city ? geoData.city.names.en : "Unknown";
+//   const country = geoData.country ? geoData.country.names.en : "Unknown";
 
-  res.json({ city, country });
-});
+//   res.json({ city, country });
+// });
 
 app.post("/webhook", (req, res) => {
   const { status, path } = req.query;
@@ -306,21 +326,22 @@ app.post("/webhook", (req, res) => {
   res.status(200).send("Stream");
 });
 
-app.get("/api/*", ensureAuthenticated, async (req, res) => {
-  const pathAfterApi = req.params[0];
-  const apiUrl = `${process.env.STREAM_API_URL}/${pathAfterApi}`;
-  try {
-    const response = await fetch(apiUrl);
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
-    }
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error("Error making GET request:", error);
-    res.status(500).send("Internal Server Error");
-  }
-});
+// app.get("/api/*", ensureAuthenticated, async (req, res) => {
+//   const pathAfterApi = req.params[0];
+//   const apiUrl = `${process.env.STREAM_API_URL}/${pathAfterApi}`;
+//   const clientIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+//   try {
+//     const response = await fetch(apiUrl);
+//     if (!response.ok) {
+//       throw new Error(`HTTP error! Status: ${response.status}`);
+//     }
+//     const data = await response.json();
+//     res.json({ ip: clientIp, data: data });
+//   } catch (error) {
+//     console.error("Error making GET request:", error);
+//     res.status(500).send("Internal Server Error");
+//   }
+// });
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(DIST, "public/index.html"));

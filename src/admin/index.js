@@ -5,55 +5,6 @@ let pingInterval;
 let initStatus = true;
 let streamStatus = false;
 
-async function fetchConnections() {
-  if (!streamStatus) return;
-
-  const response = await fetch("/api/v3/paths/list");
-  const data = await response.json();
-
-  const connections = data.items[0].readers;
-  const connectionList = document.querySelector("#connections");
-
-  // Create a map of current connections by ID
-  const currentConnections = new Map();
-  for (const item of connectionList.children) {
-    currentConnections.set(item.dataset.id, item);
-  }
-
-  // Update the list without clearing it
-  for (const connection of connections) {
-    const connectionDetails = await fetch(
-      `api/v3/webrtcsessions/get/${connection.id}`
-    );
-    const connectionData = await connectionDetails.json();
-
-    const elapsedTime = calculateElapsedTime(connectionData.created);
-
-    if (currentConnections.has(connection.id)) {
-      // Update the existing list item if it has changed
-      const listItem = currentConnections.get(connection.id);
-      const ip = connectionData.remoteAddr.split(":")[0];
-      const geo = await fetchGeo(ip);
-      const newTextContent = `Geo: ${geo.city}, ${geo.country}, IP: ${ip}, Active: ${elapsedTime}`;
-      listItem.textContent = newTextContent;
-      currentConnections.delete(connection.id);
-    } else {
-      // Create a new list item if it doesn't exist
-      const listItem = document.createElement("li");
-      listItem.dataset.id = connection.id;
-      const ip = connectionData.remoteAddr.split(":")[0];
-      const geo = await fetchGeo(ip);
-      listItem.textContent = `Geo: ${geo.city}, ${geo.country}, IP: ${ip}, Active: ${elapsedTime}`;
-      connectionList.appendChild(listItem);
-    }
-  }
-
-  // Remove any remaining items that were not updated
-  for (const [id, item] of currentConnections) {
-    connectionList.removeChild(item);
-  }
-}
-
 function calculateElapsedTime(createdTime) {
   const createdDate = new Date(createdTime);
   const currentDate = new Date();
@@ -80,7 +31,7 @@ function initWebSocket() {
 
   ws.onopen = function () {
     if (initStatus) {
-      const data = { type: "init" };
+      const data = { type: "adm_init" };
       ws.send(JSON.stringify(data));
       initStatus = false;
     }
@@ -108,6 +59,35 @@ function initWebSocket() {
       } else {
         statusDot.classList.add("red");
         statusDot.classList.remove("green");
+      }
+    }
+    if (data.type === "adm_upd") {
+      const connections = data.message;
+      const connectionList = document.querySelector(".connections-container ul");
+
+      const currentConnections = new Map();
+      for (const item of connectionList.children) {
+        currentConnections.set(item.dataset.id, item);
+      }
+
+      for (const connection of connections) {
+        const elapsedTime = calculateElapsedTime(connection.time);
+        const newTextContent = `Geo: ${connection.city}, ${connection.country}, IP: ${connection.ip}, Active: ${elapsedTime}`;
+    
+        if (currentConnections.has(connection.id)) {
+          const listItem = currentConnections.get(connection.id);
+          listItem.textContent = newTextContent;
+          currentConnections.delete(connection.id);
+        } else {
+          const listItem = document.createElement("li");
+          listItem.dataset.id = connection.id;
+          listItem.textContent = newTextContent
+          connectionList.appendChild(listItem);
+        }
+      }
+    
+      for (const [id, item] of currentConnections) {
+        connectionList.removeChild(item);
       }
     }
   };
@@ -190,8 +170,6 @@ function togglePlayer() {
 function init() {
   setInterval(timer, 500);
   timer();
-  setInterval(fetchConnections, 1000);
-  fetchConnections();
 
   initWebSocket();
 
