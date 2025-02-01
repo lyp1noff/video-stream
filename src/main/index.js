@@ -5,6 +5,38 @@ let initStatus = true;
 
 let username;
 
+document.addEventListener('keydown', function(event) {
+  const iframe = document.querySelector('.video-section iframe');
+
+  // Check if the key pressed is 'F' or 'M'
+  if (event.key.toLowerCase() === 'f') {
+      toggleFullScreen(iframe);
+  } else if (event.key.toLowerCase() === 'm') {
+      toggleMute(iframe);
+  }
+});
+
+function toggleFullScreen(iframe) {
+  if (iframe.requestFullscreen) {
+      if (document.fullscreenElement) {
+          document.exitFullscreen();
+      } else {
+          iframe.requestFullscreen();
+      }
+  }
+}
+
+function toggleMute(iframe) {
+  // Access the video element within the iframe (assuming it's your own source)
+  const video = iframe.contentWindow.document.querySelector('video');
+  if (video) {
+      video.muted = !video.muted;
+  } else {
+      // Handle embedded videos like YouTube
+      iframe.contentWindow.postMessage('{"event":"command","func":"mute"}', '*');
+  }
+}
+
 async function init() {
   username = localStorage.getItem("username");
   const usernameInput = document.querySelector(".username-container input");

@@ -132,6 +132,7 @@ wsServer.on("connection", function connection(ws, req) {
 
 setInterval(async () => {
   if (adminClients.size < 1) return;
+  if (!streamStatus) return;
   let sendData = [];
 
   try {
@@ -143,7 +144,7 @@ setInterval(async () => {
     for (const connection of connections) {
       const connectionDetails = await fetch(
         `${process.env.STREAM_API_URL}/v3/webrtcsessions/get/${connection.id}`
-      );
+      ); // hell bad
       const connectionData = await connectionDetails.json();
       const ip = connectionData.remoteAddr.split(":")[0];
       if (adminIPs.has(ip)) continue;
@@ -164,7 +165,7 @@ setInterval(async () => {
       );
     }
   });
-}, 1000);
+}, 10000);
 
 async function fetchGeo(ip) {
   if (!lookup) {

@@ -9,6 +9,7 @@ module.exports = merge(common, {
     path: path.resolve(__dirname, "dist"),
     publicPath: "/",
     filename: "public/[name].[contenthash].bundle.js",
+    assetModuleFilename: 'public/[hash][ext][query]',
     clean: true,
   },
   optimization: {
