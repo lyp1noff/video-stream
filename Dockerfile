@@ -1,41 +1,31 @@
-# Build application with Webpack
-FROM node:20 AS build
+FROM node:20-alpine AS deps
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Copy package.json and package-lock.json to the working directory
 COPY package*.json ./
+RUN npm ci
 
-# Install dependencies
-RUN npm install
+FROM node:20-alpine AS builder
 
-# Copy the rest of the application code to the working directory
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-
-# Build the application with Webpack
 RUN npm run build
 
-# Create production image
-FROM node:20-alpine
+FROM node:20-alpine AS runner
 
-WORKDIR /usr/src/app
+WORKDIR /app
+ENV NODE_ENV=production
 
-# Copy 'server.js' from build stage
-COPY --from=build /usr/src/app/server.js ./server.js
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/next-env.d.ts ./next-env.d.ts
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
+COPY --from=builder /app/node_modules ./node_modules
 
-# Copy 'dist' directory from build stage
-COPY --from=build /usr/src/app/dist ./dist
-
-# Create data folder
-RUN mkdir -p ./data
-
-# Install only production dependencies
-COPY package*.json ./
-RUN npm i --omit=dev
-
-# Expose port
 EXPOSE 3000
-EXPOSE 3030
 
-# Command to run the server
-CMD ["node", "server.js"]
+CMD ["npm", "start"]

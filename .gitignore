@@ -1,19 +1,19 @@
-# Dependency directories
+# dependencies
 /node_modules
 
-# Environment variables file
-.env
-.env.production
-
-# Built files
+# builds
+/.next
+/out
 /dist
 
-# Log files
-/logs
+# env
+.env
 
-# OS generated files
+# misc
 .DS_Store
 Thumbs.db
+
+.idea
 
 /.scripts
 /geolite
