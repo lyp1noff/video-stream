@@ -1,7 +1,6 @@
 import "./globals.css";
 import "@vidstack/react/player/styles/base.css";
-import "@vidstack/react/player/styles/default/theme.css";
-import "@vidstack/react/player/styles/default/layouts/video.css";
+import "@vidstack/react/player/styles/plyr/theme.css";
 
 import type { Metadata } from "next";
 

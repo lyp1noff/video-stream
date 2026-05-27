@@ -7,12 +7,11 @@ import {
   type MediaPlayerInstance,
   type PlayerSrc,
 } from "@vidstack/react";
-import { DefaultVideoLayout, defaultLayoutIcons } from "@vidstack/react/player/layouts/default";
+import { PlyrLayout, plyrLayoutIcons } from "@vidstack/react/player/layouts/plyr";
 import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
 
 type StreamPlayerProps = {
-  initialReady: boolean;
   isTheaterMode: boolean;
   onTheaterModeChange: (isTheaterMode: boolean) => void;
   streamPath: string;
@@ -20,7 +19,6 @@ type StreamPlayerProps = {
 };
 
 export function StreamPlayer({
-  initialReady,
   isTheaterMode,
   onTheaterModeChange,
   streamPath,
@@ -30,8 +28,8 @@ export function StreamPlayer({
   const remote = useMediaRemote(playerRef);
   const [mounted, setMounted] = useState(false);
   const [scriptReady, setScriptReady] = useState(false);
-  const [isReady, setIsReady] = useState(initialReady);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  const retryTimeoutRef = useRef<number | null>(null);
   const playerSrc: PlayerSrc | undefined = mediaStream
     ? { src: mediaStream, type: "video/object" }
     : undefined;
@@ -41,66 +39,64 @@ export function StreamPlayer({
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function refreshStatus() {
-      try {
-        const response = await fetch(`/api/stream-status?path=${encodeURIComponent(streamPath)}`, {
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          return;
-        }
-
-        const payload = (await response.json()) as { ready?: boolean };
-
-        if (!cancelled) {
-          setIsReady(Boolean(payload.ready));
-        }
-      } catch {
-        return;
-      }
-    }
-
-    void refreshStatus();
-    const intervalId = window.setInterval(refreshStatus, 5000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [streamPath]);
-
-  useEffect(() => {
-    if (!mounted || !scriptReady || !isReady) {
-      if (!isReady) {
-        setMediaStream(null);
-      }
-
+    if (!mounted || !scriptReady) {
       return;
     }
 
-    const reader = new MediaMTXWebRTCReader({
-      url: buildWhepUrl(whepBaseUrl, streamPath),
-      onError: (error) => {
-        setMediaStream(null);
-        console.error(error);
-      },
-      onTrack: (event) => {
-        const stream = event.streams[0];
+    let reader: MediaMTXWebRTCReader | null = null;
+    let retryAttempt = 0;
+    let stopped = false;
 
-        if (stream) {
-          setMediaStream(stream);
-        }
-      },
-    });
+    function clearRetryTimeout() {
+      if (retryTimeoutRef.current !== null) {
+        window.clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
+    }
+
+    function scheduleReconnect() {
+      if (stopped) {
+        return;
+      }
+
+      const delay = Math.min(30000, 1000 * 2 ** retryAttempt);
+      retryAttempt += 1;
+      clearRetryTimeout();
+      retryTimeoutRef.current = window.setTimeout(connect, delay);
+    }
+
+    function connect() {
+      if (stopped) {
+        return;
+      }
+
+      reader?.close();
+      reader = new MediaMTXWebRTCReader({
+        url: buildWhepUrl(whepBaseUrl, streamPath),
+        onError: () => {
+          setMediaStream(null);
+          scheduleReconnect();
+        },
+        onTrack: (event) => {
+          const stream = event.streams[0];
+
+          if (stream) {
+            retryAttempt = 0;
+            setMediaStream(stream);
+          }
+        },
+      });
+    }
+
+    connect();
 
     return () => {
-      reader.close();
+      stopped = true;
+      clearRetryTimeout();
+      reader?.close();
       setMediaStream(null);
     };
-  }, [isReady, mounted, scriptReady, streamPath, whepBaseUrl]);
+  }, [mounted, scriptReady, streamPath, whepBaseUrl]);
 
   useEffect(() => {
     function isTypingTarget(target: EventTarget | null) {
@@ -144,17 +140,18 @@ export function StreamPlayer({
   const theaterButton = (
     <button
       aria-label="Theater mode"
-      className="vds-button"
+      className="plyr__controls__item plyr__control"
       onClick={() => onTheaterModeChange(!isTheaterMode)}
       type="button"
     >
-      <svg aria-hidden="true" className="vds-icon" viewBox="0 0 32 32">
+      <svg aria-hidden="true" viewBox="0 0 32 32">
         {isTheaterMode ? (
           <path d="M9 10h14v12H9V10Zm2 2v8h10v-8H11Z" fill="currentColor" />
         ) : (
           <path d="M4 7h24v18H4V7Zm3 3v12h18V10H7Z" fill="currentColor" />
         )}
       </svg>
+      <span className="plyr__tooltip">Theater</span>
     </button>
   );
 
@@ -165,7 +162,7 @@ export function StreamPlayer({
         strategy="afterInteractive"
         onReady={() => setScriptReady(true)}
       />
-      {mounted && isReady ? (
+      {mounted ? (
         <MediaPlayer
           autoPlay
           className="h-full w-full bg-black font-sans text-white"
@@ -177,25 +174,21 @@ export function StreamPlayer({
           viewType="video"
         >
           <MediaProvider />
-          <DefaultVideoLayout
-            colorScheme="dark"
-            icons={defaultLayoutIcons}
-            noGestures
+          <PlyrLayout
+            clickToFullscreen={false}
+            clickToPlay={false}
+            controls={["play", "mute+volume", "current-time", "pip", "fullscreen"]}
+            icons={plyrLayoutIcons}
             slots={{
               airPlayButton: null,
+              afterCurrentTime: <span className="min-w-0 flex-1" />,
               beforeFullscreenButton: theaterButton,
-              captionButton: null,
-              chapterTitle: <div className="flex-1" />,
-              chaptersMenu: null,
-              downloadButton: null,
-              googleCastButton: null,
               settingsMenu: null,
-              timeSlider: null,
             }}
           />
         </MediaPlayer>
       ) : (
-        <img alt="" className="h-full w-full bg-black object-cover" src="/banner.png" />
+        null
       )}
     </>
   );
