@@ -7,33 +7,8 @@ function toAbsoluteUrl(url: string) {
   return url.replace(/\/$/, "");
 }
 
-function derivePathName(whepUrl: string) {
-  try {
-    const parsedUrl = whepUrl.startsWith("http")
-      ? new URL(whepUrl)
-      : new URL(whepUrl, "http://localhost");
-
-    const parts = parsedUrl.pathname.split("/").filter(Boolean);
-    const whepIndex = parts.findIndex((part) => part === "whep");
-
-    if (whepIndex > 0) {
-      return parts[whepIndex - 1];
-    }
-
-    if (parts.length > 0) {
-      return parts[0];
-    }
-  } catch {
-    return "stream";
-  }
-
-  return "stream";
-}
-
-export async function getStreamStatus() {
+export async function getStreamStatus(streamPath = process.env.STREAM_PATH || "stream") {
   const streamApiUrl = process.env.STREAM_API_URL;
-  const whepUrl = process.env.WHEP_URL || "/stream/whep";
-  const streamPath = process.env.STREAM_PATH || derivePathName(whepUrl);
 
   if (!streamApiUrl) {
     return {

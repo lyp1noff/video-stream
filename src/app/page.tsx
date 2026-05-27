@@ -1,17 +1,7 @@
-import { StreamPlayer } from "@/components/stream-player";
-import { getStreamStatus } from "@/lib/server/stream-status";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
-  const whepUrl = process.env.WHEP_URL || "/stream/whep";
-  const initialStatus = await getStreamStatus();
-
-  return (
-    <main className="page-shell">
-      <section className="player-shell">
-        <StreamPlayer initialReady={initialStatus.ready} whepUrl={whepUrl} />
-      </section>
-    </main>
-  );
+export default function HomePage() {
+  redirect(`/${process.env.STREAM_PATH || "stream"}`);
 }

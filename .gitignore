@@ -12,6 +12,7 @@
 # misc
 .DS_Store
 Thumbs.db
+tsconfig.tsbuildinfo
 
 .idea
 
@@ -19,4 +20,3 @@ Thumbs.db
 /geolite
 
 data/**
-

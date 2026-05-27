@@ -1,28 +1,54 @@
 "use client";
 
+import {
+  MediaPlayer,
+  MediaProvider,
+  useMediaRemote,
+  type MediaPlayerInstance,
+  type PlayerSrc,
+} from "@vidstack/react";
+import { DefaultVideoLayout, defaultLayoutIcons } from "@vidstack/react/player/layouts/default";
 import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
 
 type StreamPlayerProps = {
   initialReady: boolean;
-  whepUrl: string;
+  isTheaterMode: boolean;
+  onTheaterModeChange: (isTheaterMode: boolean) => void;
+  streamPath: string;
+  whepBaseUrl: string;
 };
 
-type PlayerState = "loading" | "playing" | "error";
-
-export function StreamPlayer({ initialReady, whepUrl }: StreamPlayerProps) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const readerRef = useRef<MediaMTXWebRTCReader | null>(null);
+export function StreamPlayer({
+  initialReady,
+  isTheaterMode,
+  onTheaterModeChange,
+  streamPath,
+  whepBaseUrl,
+}: StreamPlayerProps) {
+  const playerRef = useRef<MediaPlayerInstance | null>(null);
+  const remote = useMediaRemote(playerRef);
+  const [mounted, setMounted] = useState(false);
   const [scriptReady, setScriptReady] = useState(false);
   const [isReady, setIsReady] = useState(initialReady);
-  const [playerState, setPlayerState] = useState<PlayerState>(initialReady ? "loading" : "error");
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  const playerSrc: PlayerSrc | undefined = mediaStream
+    ? { src: mediaStream, type: "video/object" }
+    : undefined;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     async function refreshStatus() {
       try {
-        const response = await fetch("/api/stream-status", { cache: "no-store" });
+        const response = await fetch(`/api/stream-status?path=${encodeURIComponent(streamPath)}`, {
+          cache: "no-store",
+        });
+
         if (!response.ok) {
           return;
         }
@@ -44,57 +70,37 @@ export function StreamPlayer({ initialReady, whepUrl }: StreamPlayerProps) {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, []);
+  }, [streamPath]);
 
   useEffect(() => {
-    if (!scriptReady || !videoRef.current || !isReady) {
+    if (!mounted || !scriptReady || !isReady) {
       if (!isReady) {
-        setPlayerState("error");
+        setMediaStream(null);
       }
+
       return;
     }
 
-    setPlayerState("loading");
-
     const reader = new MediaMTXWebRTCReader({
-      url: toAbsoluteUrl(whepUrl),
+      url: buildWhepUrl(whepBaseUrl, streamPath),
       onError: (error) => {
-        setPlayerState("error");
+        setMediaStream(null);
         console.error(error);
       },
       onTrack: (event) => {
-        if (!videoRef.current) {
-          return;
-        }
+        const stream = event.streams[0];
 
-        videoRef.current.srcObject = event.streams[0];
-        setPlayerState("playing");
+        if (stream) {
+          setMediaStream(stream);
+        }
       },
     });
 
-    readerRef.current = reader;
-
     return () => {
       reader.close();
-      readerRef.current = null;
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
+      setMediaStream(null);
     };
-  }, [isReady, scriptReady, whepUrl]);
-
-  useEffect(() => {
-    const video = videoRef.current;
-
-    if (!video) {
-      return;
-    }
-
-    video.setAttribute("x-webkit-airplay", "allow");
-    video.setAttribute("webkit-playsinline", "true");
-    video.disableRemotePlayback = false;
-  }, [isReady]);
+  }, [isReady, mounted, scriptReady, streamPath, whepBaseUrl]);
 
   useEffect(() => {
     function isTypingTarget(target: EventTarget | null) {
@@ -105,38 +111,6 @@ export function StreamPlayer({ initialReady, whepUrl }: StreamPlayerProps) {
       );
     }
 
-    function toggleMute() {
-      if (!videoRef.current) {
-        return;
-      }
-
-      videoRef.current.muted = !videoRef.current.muted;
-    }
-
-    function toggleFullscreen() {
-      const element = videoRef.current?.parentElement;
-
-      if (!element) {
-        return;
-      }
-
-      if (document.fullscreenElement) {
-        void document.exitFullscreen().catch(() => {});
-        return;
-      }
-
-      if (element.requestFullscreen) {
-        void element.requestFullscreen().catch(() => {});
-        return;
-      }
-
-      (
-        element as HTMLDivElement & {
-          webkitRequestFullscreen?: () => void;
-        }
-      ).webkitRequestFullscreen?.();
-    }
-
     function onKeyDown(event: KeyboardEvent) {
       if (isTypingTarget(event.target)) {
         return;
@@ -144,13 +118,19 @@ export function StreamPlayer({ initialReady, whepUrl }: StreamPlayerProps) {
 
       if (event.code === "KeyM") {
         event.preventDefault();
-        toggleMute();
+        remote.toggleMuted();
         return;
       }
 
       if (event.code === "KeyF") {
         event.preventDefault();
-        toggleFullscreen();
+        remote.toggleFullscreen("prefer-media");
+        return;
+      }
+
+      if (event.code === "KeyT") {
+        event.preventDefault();
+        onTheaterModeChange(!isTheaterMode);
       }
     }
 
@@ -159,7 +139,24 @@ export function StreamPlayer({ initialReady, whepUrl }: StreamPlayerProps) {
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, []);
+  }, [isTheaterMode, onTheaterModeChange, remote]);
+
+  const theaterButton = (
+    <button
+      aria-label="Theater mode"
+      className="vds-button"
+      onClick={() => onTheaterModeChange(!isTheaterMode)}
+      type="button"
+    >
+      <svg aria-hidden="true" className="vds-icon" viewBox="0 0 32 32">
+        {isTheaterMode ? (
+          <path d="M9 10h14v12H9V10Zm2 2v8h10v-8H11Z" fill="currentColor" />
+        ) : (
+          <path d="M4 7h24v18H4V7Zm3 3v12h18V10H7Z" fill="currentColor" />
+        )}
+      </svg>
+    </button>
+  );
 
   return (
     <>
@@ -168,30 +165,58 @@ export function StreamPlayer({ initialReady, whepUrl }: StreamPlayerProps) {
         strategy="afterInteractive"
         onReady={() => setScriptReady(true)}
       />
-      <div className={`player-card player-card-${playerState}`}>
-        {isReady ? (
-          <video
-            ref={videoRef}
-            className="video-element"
-            controls
-            muted
-            autoPlay
-            playsInline
+      {mounted && isReady ? (
+        <MediaPlayer
+          autoPlay
+          className="h-full w-full bg-black font-sans text-white"
+          muted
+          playsInline
+          ref={playerRef}
+          src={playerSrc}
+          streamType="live"
+          viewType="video"
+        >
+          <MediaProvider />
+          <DefaultVideoLayout
+            colorScheme="dark"
+            icons={defaultLayoutIcons}
+            noGestures
+            slots={{
+              airPlayButton: null,
+              beforeFullscreenButton: theaterButton,
+              captionButton: null,
+              chapterTitle: <div className="flex-1" />,
+              chaptersMenu: null,
+              downloadButton: null,
+              googleCastButton: null,
+              settingsMenu: null,
+              timeSlider: null,
+            }}
           />
-        ) : (
-          <div className="banner-state" aria-live="polite">
-            <img alt="" className="banner-image" src="/banner.png" />
-          </div>
-        )}
-      </div>
+        </MediaPlayer>
+      ) : (
+        <img alt="" className="h-full w-full bg-black object-cover" src="/banner.png" />
+      )}
     </>
   );
 }
 
-function toAbsoluteUrl(url: string) {
+function buildWhepUrl(baseUrl: string, streamPath: string) {
+  const cleanPath = streamPath.replace(/^\/+|\/+$/g, "");
+
   if (typeof window === "undefined") {
-    return url;
+    return `/${cleanPath}/whep`;
   }
 
-  return new URL(url, window.location.origin).toString();
+  const resolvedBaseUrl = baseUrl || window.location.origin;
+  const normalizedBaseUrl = new URL(resolvedBaseUrl, window.location.origin);
+  normalizedBaseUrl.pathname = [
+    normalizedBaseUrl.pathname.replace(/\/+$/g, ""),
+    cleanPath,
+    "whep",
+  ]
+    .filter(Boolean)
+    .join("/");
+
+  return normalizedBaseUrl.toString();
 }

@@ -4,17 +4,22 @@ Minimal rewrite on `Next.js + TypeScript`.
 
 Current scope:
 
-- one public page
+- root redirect to `/${STREAM_PATH}`
+- dynamic player pages at `/{streamPath}`
 - direct MediaMTX WebRTC playback through `MediaMTXWebRTCReader`
 - no iframe
+- Tailwind UI with Media Chrome controls
 
 ## Environment
 
 Use:
 
-- `WHEP_URL` example: `/stream/whep`
 - `STREAM_API_URL` example: `http://mediamtx:9997`
-- `STREAM_PATH` optional, defaults to the path inferred from `WHEP_URL`
+- `STREAM_PATH` optional, defaults to `stream`
+- `WHEP_BASE_URL` optional, example: `https://live.example.com`
+
+For `/foo`, the player uses `${WHEP_BASE_URL}/foo/whep` and polls MediaMTX for path `foo`.
+If `WHEP_BASE_URL` is empty, the browser origin is used.
 
 ## Run
 
