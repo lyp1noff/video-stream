@@ -4,6 +4,7 @@ import {
   MediaPlayer,
   MediaProvider,
   useMediaRemote,
+  useMediaState,
   type MediaPlayerInstance,
   type PlayerSrc,
 } from "@vidstack/react";
@@ -26,6 +27,7 @@ export function StreamPlayer({
 }: StreamPlayerProps) {
   const playerRef = useRef<MediaPlayerInstance | null>(null);
   const remote = useMediaRemote(playerRef);
+  const waiting = useMediaState("waiting", playerRef);
   const [mounted, setMounted] = useState(false);
   const [scriptReady, setScriptReady] = useState(false);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
@@ -163,30 +165,37 @@ export function StreamPlayer({
         onReady={() => setScriptReady(true)}
       />
       {mounted ? (
-        <MediaPlayer
-          autoPlay
-          className="h-full w-full bg-black font-sans text-white"
-          muted
-          playsInline
-          ref={playerRef}
-          src={playerSrc}
-          streamType="live"
-          viewType="video"
-        >
-          <MediaProvider />
-          <PlyrLayout
-            clickToFullscreen={false}
-            clickToPlay={false}
-            controls={["play", "mute+volume", "current-time", "pip", "fullscreen"]}
-            icons={plyrLayoutIcons}
-            slots={{
-              airPlayButton: null,
-              afterCurrentTime: <span className="min-w-0 flex-1" />,
-              beforeFullscreenButton: theaterButton,
-              settingsMenu: null,
-            }}
-          />
-        </MediaPlayer>
+        <div className="relative h-full w-full">
+          <MediaPlayer
+            autoPlay
+            className="h-full w-full bg-black font-sans text-white"
+            muted
+            playsInline
+            ref={playerRef}
+            src={playerSrc}
+            streamType="live"
+            viewType="video"
+          >
+            <MediaProvider />
+            <PlyrLayout
+              clickToFullscreen={false}
+              clickToPlay={false}
+              controls={["play", "mute+volume", "current-time", "pip", "fullscreen"]}
+              icons={plyrLayoutIcons}
+              slots={{
+                airPlayButton: null,
+                afterCurrentTime: <span className="min-w-0 flex-1" />,
+                beforeFullscreenButton: theaterButton,
+                settingsMenu: null,
+              }}
+            />
+          </MediaPlayer>
+          {!mediaStream || waiting ? (
+            <div className="pointer-events-none absolute inset-0 grid place-items-center">
+              <div className="h-16 w-16 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            </div>
+          ) : null}
+        </div>
       ) : (
         null
       )}
