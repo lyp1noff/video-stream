@@ -13,14 +13,20 @@ import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
 
 type StreamPlayerProps = {
+  autoPlay: boolean;
+  controls: boolean;
   isTheaterMode: boolean;
+  muted: boolean;
   onTheaterModeChange: (isTheaterMode: boolean) => void;
   streamPath: string;
   whepBaseUrl: string;
 };
 
 export function StreamPlayer({
+  autoPlay,
+  controls,
   isTheaterMode,
+  muted,
   onTheaterModeChange,
   streamPath,
   whepBaseUrl,
@@ -31,7 +37,6 @@ export function StreamPlayer({
   const [mounted, setMounted] = useState(false);
   const [scriptReady, setScriptReady] = useState(false);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
-  const retryTimeoutRef = useRef<number | null>(null);
   const playerSrc: PlayerSrc | undefined = mediaStream
     ? { src: mediaStream, type: "video/object" }
     : undefined;
@@ -46,13 +51,14 @@ export function StreamPlayer({
     }
 
     let reader: MediaMTXWebRTCReader | null = null;
+    let retryTimeout: number | undefined;
     let retryAttempt = 0;
     let stopped = false;
 
     function clearRetryTimeout() {
-      if (retryTimeoutRef.current !== null) {
-        window.clearTimeout(retryTimeoutRef.current);
-        retryTimeoutRef.current = null;
+      if (retryTimeout !== undefined) {
+        window.clearTimeout(retryTimeout);
+        retryTimeout = undefined;
       }
     }
 
@@ -64,7 +70,7 @@ export function StreamPlayer({
       const delay = Math.min(30000, 1000 * 2 ** retryAttempt);
       retryAttempt += 1;
       clearRetryTimeout();
-      retryTimeoutRef.current = window.setTimeout(connect, delay);
+      retryTimeout = window.setTimeout(connect, delay);
     }
 
     function connect() {
@@ -164,12 +170,12 @@ export function StreamPlayer({
         strategy="afterInteractive"
         onReady={() => setScriptReady(true)}
       />
-      {mounted ? (
+      {mounted && (
         <div className="relative h-full w-full">
           <MediaPlayer
-            autoPlay
+            autoPlay={autoPlay}
             className="h-full w-full bg-black font-sans text-white"
-            muted
+            muted={muted}
             playsInline
             ref={playerRef}
             src={playerSrc}
@@ -177,18 +183,20 @@ export function StreamPlayer({
             viewType="video"
           >
             <MediaProvider />
-            <PlyrLayout
-              clickToFullscreen={false}
-              clickToPlay={false}
-              controls={["play", "mute+volume", "current-time", "pip", "fullscreen"]}
-              icons={plyrLayoutIcons}
-              slots={{
-                airPlayButton: null,
-                afterCurrentTime: <span className="min-w-0 flex-1" />,
-                beforeFullscreenButton: theaterButton,
-                settingsMenu: null,
-              }}
-            />
+            {controls ? (
+              <PlyrLayout
+                clickToFullscreen={false}
+                clickToPlay={false}
+                controls={["play", "mute+volume", "current-time", "pip", "fullscreen"]}
+                icons={plyrLayoutIcons}
+                slots={{
+                  airPlayButton: null,
+                  afterCurrentTime: <span className="min-w-0 flex-1" />,
+                  beforeFullscreenButton: theaterButton,
+                  settingsMenu: null,
+                }}
+              />
+            ) : null}
           </MediaPlayer>
           {!mediaStream || waiting ? (
             <div className="pointer-events-none absolute inset-0 grid place-items-center">
@@ -196,8 +204,6 @@ export function StreamPlayer({
             </div>
           ) : null}
         </div>
-      ) : (
-        null
       )}
     </>
   );

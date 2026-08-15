@@ -1,7 +1,9 @@
 "use client";
 
 import { StreamPlayer } from "@/components/stream-player";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import styles from "./stream-page-view.module.css";
 
 type StreamPageViewProps = {
   streamPath: string;
@@ -9,26 +11,28 @@ type StreamPageViewProps = {
 };
 
 export function StreamPageView({ streamPath, whepBaseUrl }: StreamPageViewProps) {
-  const [isTheaterMode, setIsTheaterMode] = useState(false);
+  const searchParams = useSearchParams();
+  const autoPlay = getBooleanParam(searchParams, "autoplay", true);
+  const controls = getBooleanParam(searchParams, "controls", true);
+  const muted = getBooleanParam(searchParams, "muted", true);
+  const full = searchParams.has("fullscreen")
+    ? getBooleanParam(searchParams, "fullscreen", true)
+    : getBooleanParam(searchParams, "full", false);
+  const [isTheaterMode, setIsTheaterMode] = useState(full);
+
+  useEffect(() => {
+    setIsTheaterMode(full);
+  }, [full]);
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-zinc-950 text-zinc-50">
-      <div
-          className={
-            isTheaterMode
-              ? "fixed inset-0 z-50 grid place-items-center overflow-hidden bg-black"
-            : "grid min-h-screen min-w-0 place-items-center p-3 md:p-4"
-        }
-      >
-        <div
-          className={
-            isTheaterMode
-              ? "h-[min(100vh,calc(100vw*9/16))] w-[min(100vw,calc(100vh*16/9))] bg-black"
-              : "aspect-video w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-white/10 bg-black md:max-w-300"
-          }
-        >
+    <main className={styles.page} data-theater-mode={isTheaterMode}>
+      <div className={styles.stage}>
+        <div className={styles.frame}>
           <StreamPlayer
+            autoPlay={autoPlay}
+            controls={controls}
             isTheaterMode={isTheaterMode}
+            muted={muted}
             onTheaterModeChange={setIsTheaterMode}
             streamPath={streamPath}
             whepBaseUrl={whepBaseUrl}
@@ -37,4 +41,26 @@ export function StreamPageView({ streamPath, whepBaseUrl }: StreamPageViewProps)
       </div>
     </main>
   );
+}
+
+function getBooleanParam(
+  searchParams: URLSearchParams,
+  name: string,
+  fallback: boolean,
+) {
+  if (!searchParams.has(name)) {
+    return fallback;
+  }
+
+  const value = searchParams.get(name)?.trim().toLowerCase();
+
+  if (value === "" || value === "true" || value === "1" || value === "yes" || value === "on") {
+    return true;
+  }
+
+  if (value === "false" || value === "0" || value === "no" || value === "off") {
+    return false;
+  }
+
+  return fallback;
 }

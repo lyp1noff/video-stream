@@ -20,6 +20,30 @@ Use:
 For `/foo`, the player uses `${WHEP_BASE_URL}/foo/whep`.
 If `WHEP_BASE_URL` is empty, the browser origin is used.
 
+## URL options
+
+Player behavior can be changed with query parameters:
+
+- `muted` — start muted, defaults to `true`
+- `autoplay` — start playback automatically, defaults to `true`
+- `controls` — show player controls, defaults to `true`
+- `full` or `fullscreen` — open in the full-page theater layout, defaults to `false`
+
+Boolean options accept `true`/`false`, `1`/`0`, `yes`/`no`, and `on`/`off`.
+An option without a value is treated as `true`, for example `/stream?full`.
+
+Examples:
+
+```text
+/stream?muted=false
+/stream?full&controls=false
+/stream?fullscreen=true&autoplay=false
+```
+
+`full`/`fullscreen` selects the full-page layout rather than the browser Fullscreen API,
+which browsers only allow after a user interaction. Unmuted autoplay can also be blocked
+by the browser's autoplay policy.
+
 ## Run
 
 ```bash
